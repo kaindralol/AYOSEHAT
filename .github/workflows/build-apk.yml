@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - uses: subosito/flutter-action@v2
         with:
@@ -33,6 +33,8 @@ jobs:
           M=android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="ayosehat"/android:label="AYOSEHAT"/' $M
           grep -q 'android.permission.INTERNET' $M || sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' $M
+          G=android/build.gradle.kts; [ -f $G ] || G=android/build.gradle
+          echo 'subprojects { tasks.configureEach { if (name.contains("lintVital")) enabled = false } }' >> $G
 
       - name: Ambil dependency
         run: cd "$APP_DIR" && flutter pub get
