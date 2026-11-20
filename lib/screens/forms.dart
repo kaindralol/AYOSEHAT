@@ -16,6 +16,7 @@ TimeOfDay _toTime(int m) => TimeOfDay(hour: m ~/ 60, minute: m % 60);
 Future<void> showAddChooser(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: Colors.white,
     builder: (sheetCtx) {
@@ -60,8 +61,8 @@ Future<void> showAddChooser(BuildContext context) {
       }
 
       return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -89,7 +90,7 @@ Future<void> showAddChooser(BuildContext context) {
                                   fontWeight: FontWeight.w800,
                                   color: AppColors.navy)),
                           SizedBox(height: 2),
-                          Text('Foto, Excel, CSV, TXT, atau .ics. Latihan disusun otomatis.',
+                          Text('PDF, foto, Excel, CSV, TXT, atau .ics. Latihan disusun otomatis.',
                               style: TextStyle(
                                   fontSize: 12.5, color: AppColors.muted)),
                         ]),

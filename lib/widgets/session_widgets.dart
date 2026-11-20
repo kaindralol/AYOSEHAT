@@ -270,6 +270,7 @@ class ConflictCard extends StatelessWidget {
 Future<void> showSessionActions(BuildContext context, Session s) {
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: Colors.white,
     builder: (sheetCtx) {
@@ -277,7 +278,7 @@ Future<void> showSessionActions(BuildContext context, Session s) {
       final conflict = s.needsMove && s.status == SessionStatus.planned;
       void close() => Navigator.of(sheetCtx).pop();
       return SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -398,10 +399,11 @@ Future<void> showManualMove(BuildContext context, Session s) {
           .toList();
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: Colors.white,
     builder: (sheetCtx) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         child: Column(
             mainAxisSize: MainAxisSize.min,

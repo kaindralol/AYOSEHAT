@@ -132,7 +132,7 @@ Future<void> uploadScheduleFlow(BuildContext context) async {
         title: const Text('Jadwal belum terbaca'),
         content: Text(
             '${res.error}\n\nTips: pastikan setiap kegiatan punya hari dan jam, misalnya "Senin 07.00-09.30 Kalkulus". '
-            'Format yang didukung: foto/screenshot (JPG, PNG), Excel (.xlsx), CSV, TXT, dan kalender (.ics).'),
+            'Format yang didukung: PDF, foto/screenshot (JPG, PNG), Excel (.xlsx), CSV, TXT, dan kalender (.ics).'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('Tutup')),
         ],

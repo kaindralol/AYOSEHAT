@@ -26,6 +26,9 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
       videoId: widget.workout.videoId,
       autoPlay: true,
       params: const YoutubePlayerParams(
+        // Wajib sejak 2025: YouTube perlu tahu aplikasi mana yang memutar
+        // video (tanpa ini muncul "Error code 152/153").
+        origin: 'https://id.ayosehat.ayosehat',
         showFullscreenButton: true,
       ),
     );

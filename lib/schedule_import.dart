@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
 
 import 'models.dart';
 import 'schedule_parser.dart';
@@ -15,30 +18,36 @@ class ImportResult {
   final String? error;
 }
 
-const allowedScheduleExtensions = ['jpg', 'jpeg', 'png', 'csv', 'xlsx', 'txt', 'ics'];
+const allowedScheduleExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'csv', 'xlsx', 'txt', 'ics'];
 
 /// Buka pemilih file, lalu baca jadwal di dalamnya.
 /// Mengembalikan null kalau pengguna membatalkan.
 Future<ImportResult?> pickAndReadSchedule() async {
-  final res = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: allowedScheduleExtensions,
-    withData: true,
-  );
+  // FileType.any: filter ekstensi di Android bisa gagal untuk tipe file
+  // yang tidak dikenali HP (penyebab error "getClass on a null object").
+  final res = await FilePicker.platform.pickFiles(type: FileType.any);
   if (res == null || res.files.isEmpty) return null;
   final f = res.files.single;
   final name = f.name;
-  final ext = (f.extension ?? '').toLowerCase();
+  final ext = (f.extension ?? name.split('.').last).toLowerCase();
+  if (!allowedScheduleExtensions.contains(ext)) {
+    return ImportResult(name, [],
+        'Format .$ext belum didukung. Gunakan PDF, foto (JPG/PNG), Excel (.xlsx), CSV, TXT, atau .ics.');
+  }
   try {
     List<ParsedEntry> entries;
+    final path = f.path;
+    Future<List<int>> readBytes() async =>
+        f.bytes ?? (path != null ? await File(path).readAsBytes() : <int>[]);
     if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
-      final path = f.path;
       if (path == null) {
         return ImportResult(name, [], 'Foto tidak bisa dibuka dari lokasi ini.');
       }
       entries = parseScheduleText(await _ocr(path));
+    } else if (ext == 'pdf') {
+      entries = parseScheduleText(await _pdfText(await readBytes()));
     } else {
-      final bytes = f.bytes ?? await File(f.path!).readAsBytes();
+      final bytes = await readBytes();
       if (ext == 'xlsx') {
         entries = parseScheduleText(_excelToLines(bytes));
       } else {
@@ -69,6 +78,21 @@ String _excelToLines(List<int> bytes) {
     }
   }
   return buf.toString();
+}
+
+/// PDF: setiap halaman (maks. 3) diubah jadi gambar, lalu dibaca seperti foto.
+Future<String> _pdfText(List<int> bytes) async {
+  final dir = await getTemporaryDirectory();
+  final parts = <String>[];
+  var i = 0;
+  await for (final page in Printing.raster(Uint8List.fromList(bytes), dpi: 200)) {
+    if (i >= 3) break;
+    final png = await page.toPng();
+    final file = File('${dir.path}/ayosehat_pdf_${i++}.png');
+    await file.writeAsBytes(png, flush: true);
+    parts.add(await _ocr(file.path));
+  }
+  return parts.join('\n');
 }
 
 /// Baca teks dari foto/screenshot jadwal di HP (tanpa internet).

@@ -40,7 +40,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           title: const Text('Jadwal belum terbaca'),
           content: Text(
               '${res!.error}\n\nTips: pastikan setiap kegiatan punya hari dan jam, misalnya "Senin 07.00-09.30 Kalkulus". '
-              'Format yang didukung: foto/screenshot (JPG, PNG), Excel (.xlsx), CSV, TXT, dan kalender (.ics).'),
+              'Format yang didukung: PDF, foto/screenshot (JPG, PNG), Excel (.xlsx), CSV, TXT, dan kalender (.ics).'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(c), child: const Text('Tutup')),
@@ -214,7 +214,7 @@ class _UploadSlot extends StatelessWidget {
                     color: AppColors.navy)),
             const SizedBox(height: 4),
             const Text(
-              'Foto/screenshot jadwal, Excel, CSV, TXT, atau kalender (.ics). '
+              'PDF, foto/screenshot jadwal, Excel, CSV, TXT, atau kalender (.ics). '
               'AYOSEHAT membaca hari & jamnya, lalu menyusun latihan di waktu yang kosong.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: AppColors.muted, height: 1.4),
