@@ -35,9 +35,18 @@ jobs:
           grep -q 'android.permission.INTERNET' $M || sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' $M
           G=android/build.gradle.kts; [ -f $G ] || G=android/build.gradle
           echo 'subprojects { tasks.configureEach { if (name.contains("lintVital")) enabled = false } }' >> $G
+          cat >> android/app/proguard-rules.pro <<'PRO'
+          -dontwarn com.google.mlkit.vision.text.chinese.**
+          -dontwarn com.google.mlkit.vision.text.devanagari.**
+          -dontwarn com.google.mlkit.vision.text.japanese.**
+          -dontwarn com.google.mlkit.vision.text.korean.**
+          PRO
 
       - name: Ambil dependency
         run: cd "$APP_DIR" && flutter pub get
+
+      - name: Pasang ikon aplikasi
+        run: cd "$APP_DIR" && dart run flutter_launcher_icons
 
       - name: Tes logika inti
         continue-on-error: true
