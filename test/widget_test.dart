@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ayosehat/app_state.dart';
 import 'package:ayosehat/models.dart';
 import 'package:ayosehat/scheduler.dart';
+import 'package:ayosehat/schedule_parser.dart';
 
 /// Tes logika inti tanpa UI: pindah otomatis, kuota gratis, dan trial.
 void main() {
@@ -73,5 +74,42 @@ void main() {
     expect(st.isTrialActive, isFalse);
     expect(st.trialExpired, isTrue);
     expect(st.isPro, isFalse);
+  });
+
+  test('membaca jadwal CSV dan teks bebas', () {
+    final e = parseScheduleText(csvToLines(
+        'Hari,Mulai,Selesai,Mata kuliah\nSenin,07:00,09:30,Kalkulus\nSelasa,13.00,15.30,Fisika Dasar'));
+    expect(e.length, 2);
+    expect(e[0].title, 'Kalkulus');
+    expect(e[0].weekday, 1);
+    expect(e[0].startMin, 7 * 60);
+    expect(e[1].weekday, 2);
+    expect(e[1].endMin, 15 * 60 + 30);
+    final t = parseScheduleText('RABU\n10.00 - 12.00 Rapat HMSI\n13.00 s.d. 15.00 Praktikum');
+    expect(t.length, 2);
+    expect(t.every((x) => x.weekday == 3), isTrue);
+    expect(t[0].type, AgendaType.organisasi);
+  });
+
+  test('latihan otomatis ditaruh di waktu kosong & "seminggu saja" berhenti', () {
+    final st = fresh();
+    final u = st.importSchedule(
+        'jadwal.csv',
+        parseScheduleText(csvToLines(
+            'Jumat,13:00,18:00,Praktikum\nSabtu,06:00,20:00,Kaderisasi')),
+        UploadMode.semingguSaja);
+    final r = st.planWorkouts(PlanPrefs(perWeek: 3, level: 'sedang', minutes: 30));
+    expect(r.made, greaterThan(0));
+    for (final s in st.sessions) {
+      expect(Scheduler.conflictingAgenda(s, st.agendas), isNull);
+      expect(s.auto, isTrue);
+      expect(s.workoutId, 's30');
+    }
+    final nextFriday = DateTime(2026, 11, 27);
+    expect(st.agendas.any((a) => a.occursOn(nextFriday)), isFalse);
+    st.setUploadMode(u, UploadMode.seterusnya);
+    expect(st.agendas.any((a) => a.occursOn(nextFriday)), isTrue);
+    st.clearAllSchedules();
+    expect(st.agendas.isEmpty && st.sessions.isEmpty && st.uploads.isEmpty, isTrue);
   });
 }

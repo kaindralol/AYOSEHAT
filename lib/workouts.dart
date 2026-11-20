@@ -94,3 +94,18 @@ const List<Workout> workouts = [
         '30 MIN CALORIE KILLER HIIT & ABS Workout - No Equipment - Full Body Home Workout',
   ),
 ];
+
+/// Latihan yang cocok untuk level ('ringan'|'sedang'|'berat') & durasi.
+Workout workoutFor(String level, int minutes) {
+  final lv = WorkoutLevel.values.firstWhere((l) => l.name == level,
+      orElse: () => WorkoutLevel.sedang);
+  return workouts.firstWhere((w) => w.level == lv && w.minutes == minutes,
+      orElse: () => workouts.firstWhere((w) => w.level == lv));
+}
+
+Workout? workoutById(String? id) {
+  for (final w in workouts) {
+    if (w.id == id) return w;
+  }
+  return null;
+}

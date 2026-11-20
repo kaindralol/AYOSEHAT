@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'scheduler.dart';
 import 'utils/format.dart';
+import 'workouts.dart';
 
 enum MoveOutcome { moved, noSlot, locked }
 
@@ -19,6 +20,19 @@ class MoveResult {
   final DateTime? fromDate;
   final int? fromMin;
   final String? agendaTitle;
+}
+
+class PlanResult {
+  const PlanResult(this.made, this.short);
+  final int made;
+  final int short;
+}
+
+class _DayCand {
+  _DayCand(this.day, this.idx, this.slots);
+  final DateTime day;
+  final int idx;
+  final List<int> slots;
 }
 
 class WeekStats {
@@ -56,6 +70,15 @@ class AppState extends ChangeNotifier {
 
   DateTime? trialStart;
   DateTime? proUntil;
+
+  /// File jadwal kegiatan yang pernah diunggah.
+  final List<UploadedSchedule> uploads = [];
+
+  /// Preferensi penyusun latihan (null = belum pernah disusun).
+  PlanPrefs? plan;
+
+  /// Berapa minggu ke depan latihan disusun.
+  static const int planWeeks = 4;
 
   // ---------------- Langganan ----------------
   bool get isTrialActive =>
@@ -297,6 +320,146 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
+  // ---------------- Unggah jadwal & susun latihan ----------------
+  /// Simpan kegiatan hasil baca file sebagai agenda.
+  UploadedSchedule importSchedule(
+      String fileName, List<ParsedEntry> entries, UploadMode mode) {
+    final now = clock();
+    final u = UploadedSchedule(
+      id: newId(),
+      fileName: fileName,
+      uploadedAt: now,
+      mode: mode,
+      count: entries.length,
+    );
+    final monday = startOfWeek(now);
+    for (final e in entries) {
+      final weekly = e.date == null;
+      agendas.add(Agenda(
+        id: newId(),
+        title: e.title,
+        type: e.type,
+        date: weekly ? addDays(monday, (e.weekday ?? 1) - 1) : e.date!,
+        startMin: e.startMin,
+        endMin: e.endMin,
+        weekly: weekly,
+        until: weekly && mode == UploadMode.semingguSaja ? u.weekEnd : null,
+        sourceId: u.id,
+      ));
+    }
+    uploads.add(u);
+    _afterScheduleChange();
+    return u;
+  }
+
+  /// Ubah jadwal unggahan menjadi "seterusnya" atau "seminggu saja".
+  void setUploadMode(UploadedSchedule u, UploadMode mode) {
+    u.mode = mode;
+    for (final a in agendas.where((a) => a.sourceId == u.id && a.weekly)) {
+      a.until = mode == UploadMode.semingguSaja ? u.weekEnd : null;
+    }
+    _afterScheduleChange();
+  }
+
+  void deleteUpload(UploadedSchedule u) {
+    agendas.removeWhere((a) => a.sourceId == u.id);
+    uploads.removeWhere((x) => x.id == u.id);
+    _afterScheduleChange();
+  }
+
+  /// Hapus semua agenda, sesi latihan, dan file jadwal.
+  void clearAllSchedules() {
+    agendas.clear();
+    sessions.clear();
+    uploads.clear();
+    plan = null;
+    _commit();
+  }
+
+  /// Jadwal kegiatan berubah: susun ulang latihan otomatis, lalu
+  /// pindahkan sesi manual yang bentrok.
+  void _afterScheduleChange() {
+    if (plan != null) {
+      planWorkouts(plan!);
+    }
+    resolveConflicts();
+  }
+
+  /// Menit-menit mulai yang kosong pada [day] dalam jendela [lo]–[hi].
+  List<int> _freeStarts(DateTime day, int dur, int lo, int hi) {
+    final now = clock();
+    var t = sameDay(day, now) ? minuteOfDay(now) + Scheduler.step : lo;
+    if (t < lo) t = lo;
+    if (t % Scheduler.step != 0) t += Scheduler.step - t % Scheduler.step;
+    final blocks = Scheduler.busyBlocks(day, agendas, sessions);
+    final out = <int>[];
+    for (; t + dur <= hi; t += Scheduler.step) {
+      if (Scheduler.isFree(t, dur, blocks)) out.add(t);
+    }
+    return out;
+  }
+
+  /// Susun latihan di waktu kosong untuk [planWeeks] minggu ke depan.
+  /// Hari dipilih yang paling longgar dan diselang-seling.
+  PlanResult planWorkouts(PlanPrefs p) {
+    plan = p;
+    sessions.removeWhere(
+        (s) => s.auto && s.status == SessionStatus.planned && !_isPast(s));
+    final w = p.time.window;
+    final lo = w[0], hi = w[1], pref = w[2];
+    final workout = workoutFor(p.level, p.minutes);
+    final today = dateOnly(clock());
+    final monday = startOfWeek(today);
+    var made = 0, short = 0;
+    for (var wk = 0; wk < planWeeks; wk++) {
+      final days = <_DayCand>[];
+      for (var i = 0; i < 7; i++) {
+        final day = addDays(monday, 7 * wk + i);
+        if (day.isBefore(today)) continue;
+        var slots = _freeStarts(day, p.minutes, lo, hi);
+        if (slots.isEmpty && p.time != PreferredTime.bebas) {
+          slots = _freeStarts(
+              day, p.minutes, Scheduler.dayStart, Scheduler.dayEnd);
+        }
+        if (slots.isNotEmpty) days.add(_DayCand(day, i, slots));
+      }
+      days.sort((a, b) {
+        final c = b.slots.length.compareTo(a.slots.length);
+        return c != 0 ? c : a.idx.compareTo(b.idx);
+      });
+      final pick = <_DayCand>[];
+      for (final d in days) {
+        if (pick.length >= p.perWeek) break;
+        if (pick.every((x) => (x.idx - d.idx).abs() > 1)) pick.add(d);
+      }
+      for (final d in days) {
+        if (pick.length >= p.perWeek) break;
+        if (!pick.contains(d)) pick.add(d);
+      }
+      final remainingDays = wk == 0 ? 7 - today.difference(monday).inDays : 7;
+      final want = min(p.perWeek, remainingDays);
+      if (pick.length < want) short += want - pick.length;
+      pick.sort((a, b) => a.idx.compareTo(b.idx));
+      for (final d in pick) {
+        final ranked = List<int>.of(d.slots)
+          ..sort((a, b) => (a - pref).abs().compareTo((b - pref).abs()));
+        sessions.add(Session(
+          id: newId(),
+          title: workout.title,
+          date: d.day,
+          startMin: ranked.first,
+          durationMin: p.minutes,
+          workoutId: workout.id,
+          auto: true,
+        ));
+        made++;
+      }
+    }
+    _flagConflicts();
+    _commit();
+    return PlanResult(made, short);
+  }
+
   // ---------------- Demo & reset ----------------
   /// Isi contoh jadwal maba yang aktif berkegiatan.
   void seedDemo() {
@@ -304,6 +467,7 @@ class AppState extends ChangeNotifier {
     sessions.clear();
     moveLog.clear();
     freeMoveLog.clear();
+    uploads.clear();
     final monday = startOfWeek(clock());
     Agenda weekly(String t, AgendaType type, int dayIdx, int s, int e) =>
         Agenda(
@@ -386,6 +550,8 @@ class AppState extends ChangeNotifier {
     freeMoveLog.clear();
     trialStart = null;
     proUntil = null;
+    uploads.clear();
+    plan = null;
     _commit();
   }
 
@@ -404,6 +570,8 @@ class AppState extends ChangeNotifier {
       'freeMoveLog': freeMoveLog.map((d) => d.toIso8601String()).toList(),
       'trialStart': trialStart?.toIso8601String(),
       'proUntil': proUntil?.toIso8601String(),
+      'uploads': uploads.map((u) => u.toJson()).toList(),
+      'plan': plan?.toJson(),
     };
     await prefs.setString(_storageKey, jsonEncode(data));
   }
@@ -436,6 +604,13 @@ class AppState extends ChangeNotifier {
       proUntil = data['proUntil'] == null
           ? null
           : DateTime.parse(data['proUntil'] as String);
+      uploads
+        ..clear()
+        ..addAll((data['uploads'] as List? ?? [])
+            .map((e) => UploadedSchedule.fromJson(e as Map<String, dynamic>)));
+      plan = data['plan'] == null
+          ? null
+          : PlanPrefs.fromJson(data['plan'] as Map<String, dynamic>);
       _flagConflicts();
     } catch (e) {
       debugPrint('Gagal membaca data AYOSEHAT: $e');

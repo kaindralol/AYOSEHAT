@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../utils/format.dart';
 import '../widgets/common.dart';
 import '../widgets/session_widgets.dart';
+import 'import_preview_screen.dart';
 
 int _toMin(TimeOfDay t) => t.hour * 60 + t.minute;
 TimeOfDay _toTime(int m) => TimeOfDay(hour: m ~/ 60, minute: m % 60);
@@ -62,6 +63,41 @@ Future<void> showAddChooser(BuildContext context) {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: AppCard(
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  uploadScheduleFlow(context);
+                },
+                child: Row(children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                        color: AppColors.green.withAlpha(30),
+                        borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.upload_file, color: AppColors.green),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Unggah file jadwal kegiatan',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.navy)),
+                          SizedBox(height: 2),
+                          Text('Foto, Excel, CSV, TXT, atau .ics. Latihan disusun otomatis.',
+                              style: TextStyle(
+                                  fontSize: 12.5, color: AppColors.muted)),
+                        ]),
+                  ),
+                  const Icon(Icons.chevron_right, color: AppColors.muted),
+                ]),
+              ),
+            ),
             option(
                 Icons.directions_run_rounded,
                 AppColors.green,

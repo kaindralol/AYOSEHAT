@@ -6,8 +6,10 @@ import '../models.dart';
 import '../scheduler.dart';
 import '../screens/forms.dart';
 import '../screens/pro_screen.dart';
+import '../screens/workout_player_screen.dart';
 import '../theme.dart';
 import '../utils/format.dart';
+import '../workouts.dart';
 import 'common.dart';
 
 void openPro(BuildContext context) {
@@ -135,7 +137,7 @@ class SessionTile extends StatelessWidget {
                       '${showDate ? '${fmtDay(s.date)} · ' : ''}${fmtDuration(s.durationMin)}',
                       style: const TextStyle(
                           fontSize: 12.5, color: AppColors.muted)),
-                  if (s.wasMoved || conflict || done || skipped) ...[
+                  if (s.auto || s.wasMoved || conflict || done || skipped) ...[
                     const SizedBox(height: 6),
                     Wrap(spacing: 6, runSpacing: 4, children: [
                       if (conflict)
@@ -143,6 +145,11 @@ class SessionTile extends StatelessWidget {
                             fg: AppColors.orangeDark,
                             bg: AppColors.softOrange,
                             icon: Icons.warning_amber_rounded),
+                      if (s.auto)
+                        const Pill('Disusun otomatis',
+                            fg: AppColors.muted,
+                            bg: AppColors.softGrey,
+                            icon: Icons.auto_awesome),
                       if (s.wasMoved)
                         Pill(
                             'Dipindah dari ${fmtDay(s.originalDate!)} ${fmtMin(s.originalStartMin!)}',
@@ -159,7 +166,9 @@ class SessionTile extends StatelessWidget {
           Icon(
               done
                   ? Icons.check_circle
-                  : Icons.directions_run_rounded,
+                  : s.workoutId != null
+                      ? Icons.play_circle_fill
+                      : Icons.directions_run_rounded,
               color: done ? AppColors.green : AppColors.navy),
         ]),
       ),
@@ -284,6 +293,21 @@ Future<void> showSessionActions(BuildContext context, Session s) {
                     '${fmtDayLong(s.date)} · ${fmtRange(s.startMin, s.endMin)}',
                     style: const TextStyle(color: AppColors.muted)),
                 const SizedBox(height: 12),
+                if (s.workoutId != null && workoutById(s.workoutId) != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.play_circle_fill,
+                        color: AppColors.green),
+                    title: const Text('Putar video latihan'),
+                    subtitle: Text(
+                        '${workoutById(s.workoutId)!.minutes} menit · ${workoutById(s.workoutId)!.level.label}'),
+                    onTap: () {
+                      close();
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => WorkoutPlayerScreen(
+                              workout: workoutById(s.workoutId)!)));
+                    },
+                  ),
                 if (s.status == SessionStatus.planned) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,

@@ -1,7 +1,7 @@
 name: ayosehat
 description: "AYOSEHAT — Rencana Olahraga Kamu. Jadwal olahraga mahasiswa yang ikut pindah saat agenda kuliah berubah."
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -14,6 +14,9 @@ dependencies:
   shared_preferences: ^2.2.2
   youtube_player_iframe: ^5.2.1
   url_launcher: ^6.2.5
+  file_picker: ^8.1.2
+  excel: ^4.0.6
+  google_mlkit_text_recognition: ^0.15.0
 
 dev_dependencies:
   flutter_test:

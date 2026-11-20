@@ -107,6 +107,7 @@ class VideoThumbnail extends StatelessWidget {
         Image.network(
           workout.thumbnailUrl,
           fit: BoxFit.cover,
+          webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
           loadingBuilder: (context, child, progress) => progress == null
               ? child
               : Container(
