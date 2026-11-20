@@ -42,6 +42,36 @@ jobs:
           -dontwarn com.google.mlkit.vision.text.korean.**
           PRO
 
+      - name: Siapkan kunci rilis (tanda tangan tetap)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          cd "$APP_DIR"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+            cat >> android/app/build.gradle.kts <<'KTS'
+          android {
+              signingConfigs {
+                  create("ayosehat") {
+                      storeFile = file("upload-keystore.jks")
+                      storePassword = System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias = System.getenv("KEY_ALIAS")
+                      keyPassword = System.getenv("KEY_PASSWORD")
+                      storeType = "pkcs12"
+                  }
+              }
+              buildTypes {
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("ayosehat")
+                  }
+              }
+          }
+          KTS
+            echo "Memakai kunci tetap AYOSEHAT"
+          else
+            echo "Secrets belum diisi, memakai kunci debug sementara"
+          fi
+
       - name: Ambil dependency
         run: cd "$APP_DIR" && flutter pub get
 
@@ -53,6 +83,10 @@ jobs:
         run: cd "$APP_DIR" && flutter test
 
       - name: Build APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: cd "$APP_DIR" && flutter build apk --release
 
       - uses: actions/upload-artifact@v4
