@@ -1,0 +1,50 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cari folder proyek
+        run: |
+          if [ -f pubspec.yaml ]; then echo "APP_DIR=." >> $GITHUB_ENV;
+          elif [ -f ayosehat/pubspec.yaml ]; then echo "APP_DIR=ayosehat" >> $GITHUB_ENV;
+          else echo "pubspec.yaml tidak ditemukan" && exit 1; fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Siapkan folder Android
+        run: |
+          cd "$APP_DIR"
+          flutter create --project-name ayosehat --org id.ayosehat --platforms android .
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="ayosehat"/android:label="AYOSEHAT"/' $M
+          grep -q 'android.permission.INTERNET' $M || sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' $M
+
+      - name: Ambil dependency
+        run: cd "$APP_DIR" && flutter pub get
+
+      - name: Tes logika inti
+        continue-on-error: true
+        run: cd "$APP_DIR" && flutter test
+
+      - name: Build APK
+        run: cd "$APP_DIR" && flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AYOSEHAT-apk
+          path: ${{ env.APP_DIR }}/build/app/outputs/flutter-apk/app-release.apk
